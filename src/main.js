@@ -16,7 +16,7 @@ let query = '';
 const loadBtn = document.querySelector('.js-load-more');
 const form = document.querySelector('.form');
 
-form.addEventListener('submit', event => {
+form.addEventListener('submit', async event => {
   event.preventDefault();
   query = event.target.elements['search-text'].value.trim();
   page = 1;
@@ -28,38 +28,39 @@ form.addEventListener('submit', event => {
 
   clearGallery();
   showLoader();
+  try {
+    const data = await getImagesByQuery(query, page);
 
-  getImagesByQuery(query, page)
-    .then(data => {
-      if (data.hits.length === 0) {
-        iziToast.warning({
-          title: 'No results',
-          message:
-            'Sorry, there are no images matching your search query. Please try again!',
-        });
-        return;
-      }
-      createGallery(data.hits);
-      if (data.totalHits > 15) {
-        showLoadMoreButton();
-      }
-    })
-
-    .catch(() => {
-      iziToast.error({
-        title: 'Error',
-        message: 'Something went wrong. Please try again later.',
+    if (data.hits.length === 0) {
+      iziToast.warning({
+        title: 'No results',
+        message:
+          'Sorry, there are no images matching your search query. Please try again!',
       });
-    })
-    .finally(() => {
-      hideLoader();
+      return;
+    }
+
+    createGallery(data.hits);
+    if (data.totalHits > page * 15) {
+      showLoadMoreButton();
+    } else {
+      hideLoadMoreButton();
+    }
+  } catch (error) {
+    iziToast.error({
+      title: 'Error',
+      message: 'Something went wrong. Please try again later.',
     });
+  } finally {
+    hideLoader();
+  }
 });
 
 loadBtn.addEventListener('click', onLoadMore);
 async function onLoadMore() {
   page += 1;
-
+  hideLoadMoreButton();
+  showLoader();
   try {
     const data = await getImagesByQuery(query, page);
 
@@ -74,7 +75,9 @@ async function onLoadMore() {
       behavior: 'smooth',
     });
 
-    if (page * 15 >= data.totalHits) {
+    if (page * 15 < data.totalHits) {
+      showLoadMoreButton();
+    } else {
       hideLoadMoreButton();
       iziToast.info({
         title: 'End',
@@ -86,5 +89,7 @@ async function onLoadMore() {
       title: 'Error',
       message: 'Something went wrong. Please try again later.',
     });
+  } finally {
+    hideLoader();
   }
 }
